@@ -1,4 +1,4 @@
-
+require 'algorithms'
 # -------------
 # functions
 # -------------
@@ -12,14 +12,40 @@ def read_fasta(filename)
           buffer << string_buffer
         else
           yielder.yield buffer if buffer.size > 0 
+          yield buffer if block_given?
           buffer = ""
         end
       end
       yielder.yield buffer if buffer.size > 0
+      yield buffer if block_given?
     end
   end
 end
 
+def get_substr(str1, str2)
+  return get_substr(str2, str1) if str1.size > str2.size
+  arr = []
+  buf = ""
+ 
+  str1.size.times do |j|
+    arr1 = []
+    str2.size.times do |i|
+      k = 0
+      buf = ""
+      while str2[i + k] == str1[j + k]
+        buf << str2[i + k]
+        k += 1
+        break if i + k >= str2.size
+        break if j + k >= str1.size
+      end
+      arr1 << buf if buf.size > 0 #&& arr.select{|x| x[buf].nil? }.size == 0
+      return [buf] if k == str1.size
+    end
+    m = arr1.max_by{|x| x.size }
+    arr += arr1.select{|x| x.size == m.size}
+  end
+  arr
+end
 # --------------------
 # main code
 # --------------------
@@ -30,27 +56,17 @@ end
 
 @outfile = File.new(@output_filename, 'w')
 
-@strings_hash = Hash.new
+@strings_arr = []
 
 #initial implementation contains something unoptimized
 lines_array = read_fasta(@input_filename).to_a
-lines_array.each_with_index do |line, index|
-  line.size.times do |i|
-    subs = line.slice(i, line.size - i)
-    subs1 = subs
-    subs.size.times do |j|
-      if @strings_hash.has_key?(subs1)
-        @strings_hash[subs1] << index unless @strings_hash[subs1].include? index
-      else
-        @strings_hash[subs1] = [index]
-      end
-      subs1 = subs1.chop
-    end
-  end
+@strings_arr << lines_array[0]
+(lines_array.size - 1).times do |k|
+  @strings_arr = @strings_arr.map{|line_subs| get_substr(line_subs, lines_array[k + 1]) }.flatten.uniq
+  puts "____#{@strings_arr.size}________#{k+1}___"
 end
 
-@strings_hash.keep_if{|k, v| v.size == lines_array.size}
-maxstr = @strings_hash.keys.max_by{|x| x.size }
+maxstr = @strings_arr.max_by{|x| x.size }
 @outfile.puts maxstr
 
 @outfile.close
